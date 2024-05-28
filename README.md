@@ -55,13 +55,13 @@ python process_dataset/asr_pipeline.py --input_dir="stimuli_audio_directory"\
 ```
 and then process the datasets. You need to modify some configuration in this py first.
 ```bash
-python process_dataset/gwilliams2023_process_240310.py
+python process_dataset/gwilliams2023_process.py
 ```
 ### Computing Mel
 We also provide pre-processing of MEG, speech, mel, text transcription. Pre-computing mel 
 will speed up training greatly.
 ```bash
-python process_dataset/gwilliams2023_process_240411.py
+python process_dataset/gwilliams2023_process.py
 ```
 
 ## dataloader 
