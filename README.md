@@ -19,8 +19,6 @@ our model is capable of capturing text semantics from MEG signal.
 discarded in all previous works.
 
 ## thanks 
-Thanks to Yiqian Yang for writing all the code in this version, 
-and we are having more partners in next version to serve for the community!
 
 please cite us if you used any code or feel inspired by our paper.
 ```bib
