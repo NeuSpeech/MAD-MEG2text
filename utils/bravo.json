@@ -1,0 +1,12 @@
+{
+  "model": {
+    "rnn_dim":260,
+    "KS":6,
+    "bidirectional":true,
+    "in_channels":208,
+    "keeptime":true,
+    "n_classes":200,
+    "num_layers":3,
+    "token_input":false
+  }
+}

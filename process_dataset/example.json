@@ -1,0 +1,33 @@
+{
+  "speech": {
+    "path": "/hpc2hdd/home/yyang937/datasets/gwilliams2023/preprocess5/sub-13/ses-0/meg/sub-13_ses-0_task-2_senid_35_audio.wav",
+    "sr": 16000},
+  "eeg": {
+    "path": "/hpc2hdd/home/yyang937/datasets/gwilliams2023/preprocess5/sub-13/ses-0/meg/sub-13_ses-0_task-2_senid_35_meg.npy",
+    "sr": 200},
+  "duration": 0.39000000000000057,
+  "language": "English",
+  "sentence": "Right",
+  "sentences": [
+    {
+      "text": "Right",
+      "start": 0.0,
+      "end": 0.39000000000000057,
+      "duration": 0.39000000000000057,
+      "words": [
+        {
+          "word": "Right",
+          "start": 176.369001,
+          "end": 176.75900099999998
+        }]}],
+  "subj": 13,
+  "story": "easy_money",
+  "story_id": 2.0,
+  "seq_id": 40.0,
+  "sound_id": 1.0,
+  "speech_rate": 205.0,
+  "voice": "Allison",
+  "start": 205.219,
+  "end": 205.60899999999998,
+  "audio_start": 28.849999,
+  "audio_end": 29.239999}
