@@ -1,4 +1,4 @@
-# [MAD: Multi-Alignment MEG-to-Text Decoding](https://arxiv.org/pdf/2403.01748.pdf)
+# MAD: Multi-Alignment MEG-to-Text Decoding
 Above is our arxiv paper link
 # Motivation
 Previous studies used teacher forcing and did not compare with 
