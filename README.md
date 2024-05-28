@@ -64,6 +64,12 @@ will speed up training greatly.
 python process_dataset/gwilliams2023_process.py
 ```
 
+### Split the data
+Split the data according to the story. In this case, the sentences in the train, validation, and test sets do not overlap.
+```bash
+python process_dataset/filter_story_jsonl.py
+```
+
 ## dataloader 
 utils.reader.AbstractDataset provides a parent dataloader for you to inherit, 
 you only need to overwrite the _get_list_data for your own class.
