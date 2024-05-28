@@ -15,30 +15,26 @@ import librosa
 from IPython.display import Audio, display
 import tqdm
 
-# 主要功能描述
-# 这个主要是为了创建相同长度的语音，以及不同情况的截取情况，这样能增加泛化性。
+# Main function description
+# This is mainly to create speech of the same length and interception in different situations, which can increase generalization.
 
-# 主要控制参数有
-# 语音截取长度
+# The main control parameters are
+# Voice interception length
 
-# 由于每个task对应一个meg和一些分段的语音，因此，可以按照划分后的语音进行切割
+# Since each task corresponds to a meg and some segmented speech, it can be cut according to the divided speech.
 
-# 划分后的可以再去split，这里不管
-# 主要的工作流是
-# 1，找到所有的tsv文件
-# 2，在每个tsv文件中找到播放的几个音频文件及其对应的转录文件
-# 3，将音频文件和脑电对应进行切割，滑动1s±0.5s进行切割，每个切4s的片段，并且以这个时间找到对应的words进行标注。
-# 4，先将切割后的片段进行保存，保存完了之后再去识别。
-# 5，将每一段语音单独拿去做语音识别。形成最后的jsonl 文件
+# After division, you can split again, it doesn’t matter here.
+# The main workflow is
+# 1, find all tsv files
+# 2, find several audio files played and their corresponding transcription files in each tsv file
+# 3. Cut the audio file corresponding to the EEG, slide it for 1s±0.5s to cut, cut each 4s segment, and use this time to find the corresponding words for annotation.
+# 4. Save the cut fragments first, and then identify them after saving.
+# 5. Take each piece of speech separately for speech recognition. Form the final jsonl file
 
-# 升级方案，就不切割数据，到dataloader里面去做。
+# In the upgrade plan, the data will not be cut, but it will be done in the dataloader.
 
 from torch.nn import functional as F
-import torchaudio
 import numpy as np
-import math
-import warnings
-import julius
 
 def extract_words_in_range(words, start_time, end_time):
     """
@@ -96,12 +92,12 @@ def get_sequences(tsv_path):
 
     sentences = []
 
-    # 合并几个 slice 的转录文本
-    # 先找到所有转录文本
-    # 过滤出故事对饮的转录文本
-    # 按照顺序对文本排列
-    # 合并文本
-    # 给出每个句子的信息
+    # Merge the transcribed text of several slices
+    # First find all the transcribed texts
+    # Filter out the transcript of the story versus drink
+    # Arrange text in order
+    # Merge text
+    # Give information about each sentence
     audio_folder_path = f'/data/johj/MEG/gwilliams2023/preprocess8/audio'
     wav_dir = os.path.join(audio_folder_path, 'wav16')
     transcription_dir = os.path.join(audio_folder_path, 'transcription')
@@ -110,9 +106,9 @@ def get_sequences(tsv_path):
     # transcription_files=[file for file in transcription_files if file.startswith(story)]
     # transcription_files=sorted(transcription_files, key=lambda x: int(x[len(story):].split('_')[0]))
 
-    # 从slice_dict中去读取顺序播放的音频文件
-    # 找到对应的文本文件
-    # 将信息按句子级别抽取保存
+    # Read sequentially played audio files from slice_dict
+    # Find the corresponding text file
+    # Extract and save information at sentence level
     for slice_dict in slice_dict_list:
         transcription_file_name = slice_dict['sound'] + '_16kHz.json'
         transcription_file_name = os.path.join(transcription_dir, transcription_file_name)
@@ -123,12 +119,12 @@ def get_sequences(tsv_path):
         language = transcription['language']
         onset = slice_dict['onset']  # the indices of eeg
         # print(f'transcription:{len(segments)}')
-        # 重写这一段代码即可，在这里滑动取词。
-        # 词语根据这里的转录文本的单词时间戳产生。因此不需要按照这里的segments进行循环。
-        # 我们需要先将转录本中的单词全部提取并转换为一个列表。  可能需要重新使用whisper-x进行标注，据说单词的时间戳会准确一些。
+        # Just rewrite this piece of code and slide to get words here.
+        # Words are generated based on the word timestamps of the transcribed text here. Therefore, there is no need to loop according to the segments here.
+        # We need to first extract all the words in the transcript and convert them into a list.   You may need to re-use whisper-x for annotation. It is said that the timestamp of the word will be more accurate.
 
         words = [word for seg in transcription['segments'] for word in seg['words']]
-        # 补全字典
+        # Completion Dictionary
         # for i,word in enumerate(words):
         #     if 'start' not in word:
         #         word['start']=words[i-1]['end']
@@ -145,7 +141,7 @@ def get_sequences(tsv_path):
             start_sec += np.random.uniform(high=1) - 0.5
             start_sec = np.clip(start_sec, 0, audio_secs - seg_sec)
             end_sec = start_sec + seg_sec
-            # words 需要根据时间选出来
+            # words Need to be selected based on time
             # print(words)
             try:
                 selected_words = extract_words_in_range(words, start_time=start_sec, end_time=end_sec)
@@ -201,7 +197,7 @@ def preprocess_eeg_data(data, threshold=10):
     threshold_mask = np.abs(data) > 1
     num_clipped = np.sum(threshold_mask)
 
-    # 计算比例
+    # Calculate proportion
     clipped_ratio = num_clipped / (data.shape[0] * data.shape[1])
     assert clipped_ratio < 0.2, 'clip ratio should below 20%'
     return data, clipped_ratio
@@ -231,7 +227,6 @@ def makedirs(path):
     return path
 
 
-# 按照句子的时间去切割
 def process_meg(tsv_path):
     print(tsv_path,'begin')
     target_meg_sr = 120 # change 200 => 120
@@ -255,19 +250,18 @@ def process_meg(tsv_path):
     lines = []
 
     for i, sent in enumerate(sentences):
-        # 切分meg
+        # split meg
         start_meg_index = int(sent['start'] * target_meg_sr)
         end_meg_index = int(sent['end'] * target_meg_sr)
         seg_meg = data[:, start_meg_index:end_meg_index]
         sent['duration'] = seg_meg.shape[1] / target_meg_sr
-        # 切分音频
+        # split audio
         audio_path = sent['audio_path']
         if old_audio_path != audio_path:
             speech_data, speech_sr = sf.read(os.path.join(folder_path, audio_path))
         start_audio_index = int(sent['audio_start'] * speech_sr)
         end_audio_index = int(sent['audio_end'] * speech_sr)
         seg_audio = speech_data[start_audio_index:end_audio_index]
-        #
         
         mel = processor(audio=seg_audio, sampling_rate=16000,
                              return_tensors="pt", return_attention_mask=True)
@@ -275,9 +269,9 @@ def process_meg(tsv_path):
         speech_mel_useful_length = torch.sum(mel.attention_mask).item()
         
 
-        # 标准化
+        # standardization
         seg_meg, cr = preprocess_eeg_data(seg_meg, threshold=20) # change threshold=20 for the same setting as meta
-        # 将处理好的音频文件，脑电文件，标注文件都储存好。
+        # Store the processed audio files, EEG files, and annotation files.
         seg_meg_path = tsv_path.replace('download', replace_folder).replace('events.tsv', f'senid_{i}_meg.npy')
         seg_audio_path = seg_meg_path.replace('meg.npy', 'audio.wav')
         seg_mel_path = seg_meg_path.replace('meg.npy', 'mel.npy')
@@ -288,11 +282,11 @@ def process_meg(tsv_path):
         # seg_meg = np.load(seg_meg_path)
         sf.write(seg_audio_path, seg_audio, target_speech_sr)
 
-        # 解析其他的键值对
+        # Parse other key-value pairs
         selected_keys = ['story', 'story_id', 'sound_id', 'speech_rate', 'voice']
 
         new_dict = {key: sent[key] for key in selected_keys}
-        # 做 whisper json
+        # whisper json
         line = {
             "speech": {"path": seg_audio_path, 'sr': target_speech_sr},
             "eeg": {"path": seg_meg_path, 'sr': target_meg_sr},
@@ -377,29 +371,3 @@ if __name__ == '__main__':
         all_lines.extend(lines)
 
     write_jsonlines(os.path.join(folder_path.replace('download', replace_folder), 'info.jsonl'), all_lines)
-
-    # 将数据分为训练集，验证集和测试集。
-    # 第一种分法是将所有数据直接随机分为8:1:1
-    # 第二种分法是将session1的数据分为训练和验证9:1，测试集为整个session2的数据。
-    # import random
-    #
-    # data = read_jsonlines(f'/hpc2hdd/home/yyang937/datasets/gwilliams2023/{replace_folder}/info.jsonl')  # 替换为你的数据列表
-    # random.shuffle(data)  # 随机打乱数据列表
-    #
-    # total_samples = len(data)
-    # train_samples = int(0.8 * total_samples)
-    # val_samples = int(0.1 * total_samples)
-    # test_samples = total_samples - train_samples - val_samples
-    #
-    # train_data1 = data[:train_samples]
-    # val_data1 = data[train_samples:train_samples + val_samples]
-    # test_data1 = data[train_samples + val_samples:]
-    #
-    # print("训练集大小:", len(train_data1))
-    # print("验证集大小:", len(val_data1))
-    # print("测试集大小:", len(test_data1))
-    # split1_path = os.path.join(folder_path.replace('download', replace_folder), 'split1')
-    # os.makedirs(split1_path, exist_ok=True)
-    # write_jsonlines(os.path.join(split1_path, 'train.jsonl'), train_data1)
-    # write_jsonlines(os.path.join(split1_path, 'val.jsonl'), val_data1)
-    # write_jsonlines(os.path.join(split1_path, 'test.jsonl'), test_data1)

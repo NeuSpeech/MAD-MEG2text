@@ -14,61 +14,50 @@
 # limitations under the License.
 """ PyTorch Whisper model."""
 
-import math
 from typing import Optional, Tuple, Union
-
-import numpy as np
 import torch
 import torch.utils.checkpoint
-from torch import nn
-from torch.nn import CrossEntropyLoss,MSELoss
+from torch.nn import MSELoss
 import torch.nn.functional as F
 import re
-import inspect
 from transformers.models.whisper.modeling_whisper import *
-from transformers.utils import ExplicitEnum, ModelOutput, is_accelerate_available, logging
-import pickle
+from transformers.utils import ModelOutput, logging
 from utils.brain_module import SimpleConv, ClipLoss
-from utils.loss import MMDLoss,person_correlation_loss_for_mel
+from utils.loss import MMDLoss
 from dataclasses import dataclass
-from transformers import PreTrainedModel, PretrainedConfig, WhisperProcessor
-import copy
-from AutomaticWeightedLoss.AutomaticWeightedLoss import AutomaticWeightedLoss
-import json
-if is_accelerate_available():
-    from accelerate.hooks import AlignDevicesHook, add_hook_to_module
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from transformers import PreTrainedModel, WhisperProcessor
+from typing import Optional, Tuple, Union
 logger = logging.get_logger(__name__)
 
 def print_tensor_features(tensor1, tensor2):
-    # 计算张量1的数值特征
+    # Compute the numerical characteristics of tensor 1
     max_value1 = tensor1.max()
     min_value1 = tensor1.min()
     mean_value1 = tensor1.mean()
     std_value1 = tensor1.std()
     range_value1 = max_value1 - min_value1
-    size1 = tensor1.numel()  # 数据大小
+    size1 = tensor1.numel()  # Data size
 
-    # 计算张量2的数值特征
+    # Compute the numerical characteristics of tensor 2
     max_value2 = tensor2.max()
     min_value2 = tensor2.min()
     mean_value2 = tensor2.mean()
     std_value2 = tensor2.std()
     range_value2 = max_value2 - min_value2
-    size2 = tensor2.numel()  # 数据大小
+    size2 = tensor2.numel()  # Data size
 
-    # 计算两个张量之间的差距和关联特征
+    # Calculate the gap and associated features between two tensors
     max_difference = max(max_value1, max_value2) - min(min_value1, min_value2)
     mean_difference = mean_value1 - mean_value2
     std_difference = std_value1 - std_value2
 
-    # 打印两个张量的数值特征
+    # Print numerical features of two tensors
     print("Tensor 1:")
     print(f"Max: {max_value1}, Min: {min_value1}, Mean: {mean_value1}, Std: {std_value1}, Range: {range_value1}, Size: {size1}")
     print("Tensor 2:")
     print(f"Max: {max_value2}, Min: {min_value2}, Mean: {mean_value2}, Std: {std_value2}, Range: {range_value2}, Size: {size2}")
 
-    # 打印两个张量之间的差距和关联特征
+    # Print the gap and associated features between two tensors
     print("Differences:")
     print(f"Max Difference: {max_difference}, Mean Difference: {mean_difference}, Std Difference: {std_difference}")
 

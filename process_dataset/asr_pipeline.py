@@ -5,11 +5,11 @@ import whisper
 import tqdm
 import librosa
 import sys
-# 获取当前脚本的文件路径
+# Get the file path of the current script
 current_path = os.path.abspath(__file__)
-# 获取项目根目录的路径
+# Get the path to the project root directory
 project_root = os.path.dirname(os.path.dirname(current_path))
-# 将项目根目录添加到 sys.path
+# Add the project root directory to sys.path
 sys.path.append(project_root)
 
 import argparse
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError
 
-    # 从音频转写到文本。还需要把音频转为16kHz，写入json文件
+    # Transcribe from audio to text. You also need to convert the audio to 16kHz and write it into a json file
     for wav_path in tqdm.tqdm(wav_files):
         wav_path = os.path.join(wav_dir, wav_path)
         wav_name = os.path.basename(wav_path).split('.')[0]
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         else:
             raise NotImplementedError
 
-        # 写入文本
+        # write text
         transcribe_path = f"{transcription_dir}/{os.path.basename(wav_path).split('.')[0]}.json"
         transcribe_path = makedirs(transcribe_path)
         with open(transcribe_path, 'w') as write_f:

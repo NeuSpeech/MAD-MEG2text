@@ -1,14 +1,13 @@
 import jsonlines
 import os
 import sys
-# 这个是在GWilliams数据集里面要过滤某个story
-# 获取当前脚本的文件路径
+# This is to filter a certain story in the GWilliams data set
+# Get the file path of the current script
 # current_path = os.path.abspath(__file__)
-# # 获取项目根目录的路径
+# Get the path to the project root directory
 # project_root = os.path.dirname(os.path.dirname(current_path))
-# # 将项目根目录添加到 sys.path
+# Add the project root directory to sys.path
 # sys.path.append(project_root)
-#
 # import argparse
 # import functools
 # from utils.utils import add_arguments
