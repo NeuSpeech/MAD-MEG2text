@@ -57,12 +57,6 @@ and then process the datasets. You need to modify some configuration in this py 
 ```bash
 python process_dataset/gwilliams2023_process.py
 ```
-### Computing Mel
-We also provide pre-processing of MEG, speech, mel, text transcription. Pre-computing mel 
-will speed up training greatly.
-```bash
-python process_dataset/gwilliams2023_process.py
-```
 
 ### Split the data
 Split the data according to the story. In this case, the sentences in the train, validation, and test sets do not overlap.
