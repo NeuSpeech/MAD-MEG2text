@@ -34,7 +34,7 @@ please cite us if you used any code or feel inspired by our paper.
 The basic logic of this code is to preprocess signal along with 
 its speech labels in whisper format, and train M/EEG as speech.
 
-## data preprocessing
+### data preprocessing
 for paper version, it will extract signal and MEG according to 
 time events in the dataset's original event.tsv
 process_dataset/example.json shows an example of processed data
