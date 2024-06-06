@@ -1,4 +1,6 @@
-# MAD: Multi-Alignment MEG-to-Text Decoding[https://arxiv.org/pdf/2406.01512]
+# MAD: Multi-Alignment MEG-to-Text Decoding
+https://arxiv.org/pdf/2406.01512
+
 Above is our arxiv paper link
 # Motivation
 Previous studies used teacher forcing and did not compare with 
@@ -22,10 +24,10 @@ discarded in all previous works.
 
 please cite us if you used any code or feel inspired by our paper.
 ```bib
-@article{xx,
+@article{yang2024mad,
   title={MAD: Multi-Alignment MEG-to-Text Decoding},
-  author={xx},
-  journal={xx},
+  author={Yang, Yiqian and Jo, Hyejeong and Duan, Yiqun and Zhang, Qiang and Zhou, Jinni and Lee, Won Hee and Xu, Renjing and Xiong, Hui},
+  journal={arXiv preprint arXiv:2406.01512},
   year={2024}
 }
 ```
