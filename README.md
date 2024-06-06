@@ -10,7 +10,7 @@ Previous method seems to fail on unseen text, in this model, we used transfer le
  signals into text in open-vocabulary, obviating the dependence on markers, teacher forcing,
  or pre-training, representing the initial implementation of translating raw MEG waves into
  text for unseen content.
-* Weare the first to investigate various alignments and demonstrate the benefits of aligning
+* We are the first to investigate various alignments and demonstrate the benefits of aligning
  with speech modality rather than text modality in the MEG-to-text transcription task, offering
  significant insights for network improvement.
 * Our extensive experimentation and thorough analysis of the proposed model showcase its
