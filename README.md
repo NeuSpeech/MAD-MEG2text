@@ -83,7 +83,9 @@ some modules, and it is not easy to implement generate method in the model
 if additional modules is added in it.
 
 
-
-
+# Contact
+Please do not hesitate to send me email and start collaborate with us!!!
+I have more ideas now.
+yyang937@connect.hkust-gz.edu.cn
 
 
