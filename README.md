@@ -1,24 +1,21 @@
 # MAD: Multi-Alignment MEG-to-Text Decoding
 https://arxiv.org/pdf/2406.01512
-
 Above is our arxiv paper link
+![image](https://github.com/NeuSpeech/MAD-MEG2text/assets/151606332/16765c20-fa44-41b6-bde2-01508bcbee50)
+
 # Motivation
-Previous studies used teacher forcing and did not compare with 
-comprehensive metrics. 
-For example, the eeg-to-text did not compare its results with 
-input noise. After experiments, we found that input-noise has 
-the same performance as input-eeg, which shows the incapability
-of the model.
-
-In this paper, we used non-teacher forcing to evaluate performance,
-and compared our result with input-noise. It turns out that 
-our model is capable of capturing text semantics from MEG signal.
-
+Previous method seems to fail on unseen text, in this model, we used transfer learning to tackle this issue, it indicates an interesting insight that directly training the model with text alignment is almost useless, but with midiate representations, it can learn useful information. We aligned the Mel spectrogram and encoder output to gain better results.
 # contribution
-* propose to use non-teacher forcing, and comparing with noise-input
-* provide powerful and simple data processing and augmentation framework for you to explore!
-* provide important insights of checking if your model is learning, which is 
-discarded in all previous works.
+* MAD presents an end-to-end neural network design for the direct conversion of MEG
+ signals into text in open-vocabulary, obviating the dependence on markers, teacher forcing,
+ or pre-training, representing the initial implementation of translating raw MEG waves into
+ text for unseen content.
+* Weare the first to investigate various alignments and demonstrate the benefits of aligning
+ with speech modality rather than text modality in the MEG-to-text transcription task, offering
+ significant insights for network improvement.
+* Our extensive experimentation and thorough analysis of the proposed model showcase its
+ effectiveness and highlight its superiority over existing methods in terms of translation
+ accuracy, efficiency ,and reliability.
 
 ## thanks 
 
