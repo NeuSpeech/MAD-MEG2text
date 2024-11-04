@@ -128,10 +128,6 @@ forced_decoder_ids = processor.get_decoder_prompt_ids(
     task=args.task,
     no_timestamps=not args.timestamps,)
 
-# Get model
-#model = BrainWhisperForConditionalGeneration2.from_pretrained(args.model_path,
-#                                                    device_map="auto",
-#                                                    local_files_only=args.local_files_only,)
 
 model.eval()
 
@@ -193,8 +189,6 @@ def preprocess_text(text):
 
 with open(output_file, "w") as f:
     for step, batch in tqdm.tqdm(enumerate(eval_dataloader)):
-        # if step<100: 
-        #     continue
         if step==0:
             select_results = {'meg': None, 'decoded_labels': [], 'decoded_preds': [], 'pred_mel': None, 'mel_spec':None}
         with torch.cuda.amp.autocast():
@@ -320,19 +314,20 @@ with open(output_file, "w") as f:
 
                 # torch.cat((torch.randn(3,5),torch.randn(3,5)), axis=0)
 
+# python 3.12.2
 with open(f'{mel_path}/select_results.pkl', 'wb') as pkl_file:
     pickle.dump(select_results, pkl_file)
 
 if not args.random_choice:
     jsonl_file_path=os.path.join(results_path,f'{result_basename}.jsonl')
-    jsonl_file=[{"pred":pred,"label":label} for pred,label in zip(result_preds, result_labels)]
-    write_jsonlines(jsonl_file_path,jsonl_file)
+    jsonl_file=[{"pred":pred,"label":label} for pred,label in zip(select_results['decoded_preds'], select_results['decoded_labels'])]
+    write_jsonlines(jsonl_file_path, jsonl_file)
     for metric in metrics:
         # print(metric.description)
         if metric.description=='nltk':
             metric.add_batch(pred_tokens_list=pred_tokens_list, target_tokens_list=target_tokens_list)
         else:
-            metric.add_batch(predictions=result_preds, references=result_labels)
+            metric.add_batch(predictions=select_results['decoded_preds'], references=select_results['decoded_labels'])
 
 if not args.random_choice:
     results={}
