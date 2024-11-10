@@ -154,8 +154,11 @@ eval_dataloader = DataLoader(test_dataset, batch_size=args.batch_size,
 # Get Whisper model
 metrics = []
 # metric_files = ['bert_score','bleu','mer', 'my_rouge','perplexity', 'wer','word_info_lost','word_info_preserved']
-metric_files = ['bleu', 'nltkbleu_sentence', 'sacrebleu', 'mer', 'my_rouge','wer','word_info_lost','word_info_preserved',
-                'bert_score','meteor','cer1'
+# metric_files = ['bleu', 'nltkbleu_sentence', 'sacrebleu', 'mer', 'my_rouge','wer','word_info_lost','word_info_preserved',
+#                 'bert_score','meteor','cer1'
+#                 ]
+metric_files = ['nltkbleu_sentence', 'my_rouge','word_info_preserved',
+                'bert_score','cer1'
                 ]
 # Load metrics
 for metric_file in metric_files:
