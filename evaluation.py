@@ -3,6 +3,8 @@ import functools
 import gc
 import json
 import os
+import pathlib
+
 import torch.nn as nn
 import evaluate
 import numpy as np
@@ -49,7 +51,7 @@ add_arg("extra_name", type=str, default=None,    help="result basename里面增�
 add_arg("post_processing", type=bool, default=False,    help="是否使用后处理")
 add_arg("config_name", type=str, default='base',    help="使用的模型")
 add_arg("add_sequence_bias", type=bool, default=False,    help="是否对生成词增强。")
-add_arg("base_model",    type=str, default="/data/johj/MEG/transformer_whisper_models", help="Whisper的基础模型")
+add_arg("base_model",    type=str, default="openai/whisper-base.en", help="Whisper的基础模型")
 add_arg("device", type=str, default='cuda',    help="device")
 add_arg("mmd_input_type",    type=str, default='mean',      help="mmd")
 
@@ -59,8 +61,8 @@ args = parser.parse_args()
 print_arguments(args)
 
 # model path checking
-assert 'openai' == os.path.dirname(args.model_path) or os.path.exists(args.model_path), \
-    f"The model file {args.model_path} does not exist. Please check whether the model has been successfully merged, or if it is a model available on Hugging Face."
+# assert 'openai' == os.path.dirname(args.model_path) or os.path.exists(args.model_path), \
+#     f"The model file {args.model_path} does not exist. Please check whether the model has been successfully merged, or if it is a model available on Hugging Face."
 # Get Whisper's data processor, which includes feature extractor and tokenizer
 print('loading')
 
@@ -80,8 +82,8 @@ else:
 
 ''' base model load '''
 pretrained = WhisperForConditionalGeneration.from_pretrained("openai/whisper-base.en")
-whisper_config = args.base_model + '/config.json'
-whisper_config = AutoConfig.from_pretrained(whisper_config)
+# whisper_config = args.base_model + '/config.json'
+whisper_config = AutoConfig.from_pretrained(args.base_model)
 checkpoint_path =args.checkpoint_path
 state_dict = torch.load(checkpoint_path+'full_model.pth')
 depth=5
@@ -105,12 +107,12 @@ device = torch.device(device_map)
 model.to(device)
 if args.noise==True:
     print(args.noise)
-    results_path = '/data/johj/results/noise/'+state_dict.config.run_name
-    mel_path = '/data/johj/predmel_output/noise/'+state_dict.config.run_name
+    results_path =os.path.join(args.checkpoint_path,'results/noise/'+state_dict.config.run_name)
+    mel_path = os.path.join(args.checkpoint_path,'predmel_output/noise/'+state_dict.config.run_name)
 
 else:
-    results_path = '/data/johj/results/'+state_dict.config.run_name
-    mel_path = '/data/johj/predmel_output/'+state_dict.config.run_name
+    results_path = os.path.join(args.checkpoint_path,'results/'+state_dict.config.run_name)
+    mel_path = os.path.join(args.checkpoint_path,'predmel_output/'+state_dict.config.run_name)
 
 if not os.path.exists(results_path):
     os.makedirs(results_path)
@@ -157,8 +159,11 @@ metrics = []
 # metric_files = ['bleu', 'nltkbleu_sentence', 'sacrebleu', 'mer', 'my_rouge','wer','word_info_lost','word_info_preserved',
 #                 'bert_score','meteor','cer1'
 #                 ]
-metric_files = ['nltkbleu_sentence', 'my_rouge','word_info_preserved',
-                'bert_score','cer1'
+metric_files = ['bleu',
+                'nltkbleu_sentence',
+                'my_rouge','word_info_preserved',
+                # 'bert_score',
+                'cer1'
                 ]
 # Load metrics
 for metric_file in metric_files:
@@ -186,153 +191,170 @@ result_labels=[]
 target_tokens_list=[] # for nltk
 pred_tokens_list=[]
 
+orig_sentences={
+    "pred":[],
+    "label":[],
+}
+
 def preprocess_text(text):
     text = re.sub(r'[^A-Za-z0-9\s]', '', text).strip()
     return text
 
-with open(output_file, "w") as f:
-    for step, batch in tqdm.tqdm(enumerate(eval_dataloader)):
-        if step==0:
-            select_results = {'meg': None, 'decoded_labels': [], 'decoded_preds': [], 'pred_mel': None, 'mel_spec':None}
-        with torch.cuda.amp.autocast():
-            with torch.no_grad():
-                if not args.random_choice:
-                    input_features = batch["input_features"].cuda()
-                    if args.noise:
-                        input_features=torch.randn_like(input_features)
-                        print('noise')
-                    if not args.teacher_forcing:
-                        if args.language.lower() != 'english':
-                            decoder_input_ids = batch["labels"][:, :4].cuda()
-                            generation_kwargs={"decoder_input_ids":decoder_input_ids}
-                        else:
-                            generation_kwargs={}
-                        if args.add_sequence_bias==True:
-                            sequence_bias=generation_helper.get_bias_for_my_sentences()
-                            sequence_bias_kwargs={"sequence_bias":sequence_bias}
-                            # print(sequence_bias_kwargs)
-                        else:
-                            sequence_bias_kwargs={}
-                        # print(sequence_bias_kwargs,type(args.add_sequence_bias),args.add_sequence_bias==True,args.post_processing)
-                        generated_tokens = (
-                            model.generate(input_features,
-                                           useful_length=400,
-                                           subject_index=batch['subject_index'],
-                                           mel_spec=batch['mel_spec'],
-                                           do_sample=False, num_beams=5,
-                                           # do_sample=False,num_beams=20,
-                                           # do_sample=True,num_beams=20,typical_p=0.25,
-                                           # do_sample=True,num_beams=20,top_p=0.25,
-                                           # do_sample=True,num_beams=20,top_p=0.25,
-                                           # do_sample=False,num_beams=5,num_beam_groups=5, # 这个能比随机搞2个点
-                                           # diversity_penalty=1.0,
-
-                                           repetition_penalty=5.0,no_repeat_ngram_size=2,max_new_tokens=50,
-                                           **sequence_bias_kwargs,
-
-                                           **generation_kwargs
-                                           # max_new_tokens=100,
-                                           # forced_decoder_ids=forced_decoder_ids
-                                           )
-                        ).cpu().numpy()
+for step, batch in tqdm.tqdm(enumerate(eval_dataloader)):
+    # if step>10:
+    #     break
+    if step==0:
+        select_results = {'meg': None, 'decoded_labels': [], 'decoded_preds': [], 'pred_mel': None, 'mel_spec':None}
+    with torch.cuda.amp.autocast():
+        with torch.no_grad():
+            if not args.random_choice:
+                input_features = batch["input_features"].cuda()
+                if args.noise:
+                    input_features=torch.randn_like(input_features)
+                    print('noise')
+                if not args.teacher_forcing:
+                    if args.language.lower() != 'english':
+                        decoder_input_ids = batch["labels"][:, :4].cuda()
+                        generation_kwargs={"decoder_input_ids":decoder_input_ids}
                     else:
-                        # print(batch["labels"])
-                        # print(batch["labels"].shape)
-                        # exit()
-                        # 50257
-                        indices=batch["labels"]==-100
-                        batch["labels"][indices]=50257
-                        # decoder_input_ids=batch["labels"].cuda()
-                        model_output=model(input_features, subject_index=batch['subject_index'].cpu().cuda(), useful_length=400, mel_spec=batch['mel_spec'].cuda(), labels=batch["labels"].cuda())
-                        logits=model_output.logits
-                        # logits=logits.to('cpu').numpy()
-                        # print(f'logits shape:{logits.shape}')
-                        values,predictions=logits.softmax(dim=-1).topk(1)
-                        # print(f'predictions shape:{predictions.shape}')
-                        predictions=torch.squeeze(predictions,dim=-1)
-                        # print(f'predictions:{predictions}')
-                        generated_tokens=predictions.cpu().numpy()
-                        generated_tokens[indices]=-100
-                        # print(f'generated_tokens:{generated_tokens.shape}')
-                        
+                        generation_kwargs={}
+                    if args.add_sequence_bias==True:
+                        sequence_bias=generation_helper.get_bias_for_my_sentences()
+                        sequence_bias_kwargs={"sequence_bias":sequence_bias}
+                        # print(sequence_bias_kwargs)
+                    else:
+                        sequence_bias_kwargs={}
+                    # print(sequence_bias_kwargs,type(args.add_sequence_bias),args.add_sequence_bias==True,args.post_processing)
+                    generated_tokens = (
+                        model.generate(input_features,
+                                       useful_length=400,
+                                       subject_index=batch['subject_index'],
+                                       mel_spec=batch['mel_spec'],
+                                       do_sample=False, num_beams=5,
+                                       # do_sample=False,num_beams=20,
+                                       # do_sample=True,num_beams=20,typical_p=0.25,
+                                       # do_sample=True,num_beams=20,top_p=0.25,
+                                       # do_sample=True,num_beams=20,top_p=0.25,
+                                       # do_sample=False,num_beams=5,num_beam_groups=5, # 这个能比随机搞2个点
+                                       # diversity_penalty=1.0,
+
+                                       repetition_penalty=5.0,no_repeat_ngram_size=2,max_new_tokens=50,
+                                       **sequence_bias_kwargs,
+
+                                       **generation_kwargs
+                                       # max_new_tokens=100,
+                                       # forced_decoder_ids=forced_decoder_ids
+                                       )
+                    ).cpu().numpy()
+                else:
+                    # print(batch["labels"])
+                    # print(batch["labels"].shape)
+                    # exit()
+                    # 50257
+                    indices=batch["labels"]==-100
+                    batch["labels"][indices]=50257
+                    # decoder_input_ids=batch["labels"].cuda()
+                    model_output=model(input_features, subject_index=batch['subject_index'].cpu().cuda(), useful_length=400, mel_spec=batch['mel_spec'].cuda(), labels=batch["labels"].cuda())
+                    logits=model_output.logits
+                    # logits=logits.to('cpu').numpy()
+                    # print(f'logits shape:{logits.shape}')
+                    values,predictions=logits.softmax(dim=-1).topk(1)
+                    # print(f'predictions shape:{predictions.shape}')
+                    predictions=torch.squeeze(predictions,dim=-1)
+                    # print(f'predictions:{predictions}')
+                    generated_tokens=predictions.cpu().numpy()
+                    generated_tokens[indices]=-100
+                    # print(f'generated_tokens:{generated_tokens.shape}')
+
+            labels = batch["labels"].cpu().numpy()
+            # print(f'labels:{labels}')
+            labels = np.where(labels != -100, labels, processor.tokenizer.pad_token_id)
+
+            for label in labels:
+                target_tokens_list += [list(label)]
+            for tok in generated_tokens:
+                pred_tokens_list += [list(tok)]
+            # 将预测和实际的 token 转换为文本
+            if not args.random_choice:
+                decoded_preds = processor.batch_decode(generated_tokens, skip_special_tokens=True)
+            decoded_labels = processor.batch_decode(labels, skip_special_tokens=True)
+            result_preds.extend(decoded_preds)
+            result_labels.extend(decoded_labels)
+            orig_sentences['pred'].extend(decoded_preds)
+            orig_sentences['label'].extend(decoded_labels)
+            # decoded_preds = processor.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+            # decoded_labels = processor.tokenizer.batch_decode(labels, skip_special_tokens=True)
+            # if args.post_processing:
+            #     decoded_preds=filter_ascii_text(decoded_preds)
+            #     decoded_labels=filter_ascii_text(decoded_labels)
+            #     decoded_preds=convert_lower_text(decoded_preds)
+            #     decoded_labels=convert_lower_text(decoded_labels)
+                # decoded_preds=[preprocess_text(pred) for pred in decoded_preds]
+
+            # for pred, label in zip(decoded_preds, decoded_labels):
+            #     f.write(f"start********************************\n")
+            #     f.write(f"Predicted: {pred}\n")
+            #     f.write(f"True: {label}\n")
+            #     f.write(f"end==================================\n\n")
+
+            if not args.random_choice:
+                print('decoded_preds')
+                print(decoded_preds)
+                print('decoded_labels')
+                print(decoded_labels)
+                print('\n')
+                print('end')
+            # if args.random_choice:
+            #     all_labels.extend(decoded_labels)
+            # if args.teacher_forcing:
+            #     if step % 150 == 0:
+            #         print("start producing mel results********************************")
+            #         if select_results['meg']==None:
+            #             select_results['meg'] = input_features.cpu()
+            #             select_results['decoded_labels']+=decoded_labels
+            #             select_results['decoded_preds']+=decoded_preds
+            #             select_results['pred_mel'] = model_output.p_mel.cpu()
+            #             select_results['mel_spec'] = model_output.mel.cpu()
+            #         else:
+            #             select_results['meg'] = torch.cat((select_results['meg'], input_features.cpu()), axis=0)
+            #             select_results['decoded_labels']+=decoded_labels
+            #             select_results['decoded_preds']+=decoded_preds
+            #             select_results['pred_mel'] = torch.cat((select_results['pred_mel'], model_output.p_mel.cpu()), axis=0)
+            #             select_results['mel_spec'] = torch.cat((select_results['mel_spec'], model_output.mel.cpu()), axis=0) # .cpu().detach().numpy()
+            #
+            #         print("end mel results********************************")
 
 
-                labels = batch["labels"].cpu().numpy()
-                # print(f'labels:{labels}')
-                labels = np.where(labels != -100, labels, processor.tokenizer.pad_token_id)
-                
-                for label in labels:
-                    target_tokens_list += [list(label)]
-                for tok in generated_tokens:
-                    pred_tokens_list += [list(tok)]
-                # 将预测和实际的 token 转换为文本
-                if not args.random_choice:
-                    decoded_preds = processor.batch_decode(generated_tokens, skip_special_tokens=True)
-                decoded_labels = processor.batch_decode(labels, skip_special_tokens=True)
-                result_preds.extend(decoded_preds)
-                result_labels.extend(decoded_labels)
-                # decoded_preds = processor.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-                # decoded_labels = processor.tokenizer.batch_decode(labels, skip_special_tokens=True)
-                if args.post_processing:
-                    decoded_preds=filter_ascii_text(decoded_preds)
-                    decoded_labels=filter_ascii_text(decoded_labels)
-                    decoded_preds=convert_lower_text(decoded_preds)
-                    decoded_labels=convert_lower_text(decoded_labels)
-                    decoded_preds=[preprocess_text(pred) for pred in decoded_preds]
+# save original generation and label
+orig_sentences_jsonl=[
+    {
+        "pred" : orig_sentences['pred'][i],
+        "label" : orig_sentences['label'][i],
+    }
+    for i,sentence in enumerate(orig_sentences['pred'])
+]
 
-                for pred, label in zip(decoded_preds, decoded_labels):
-                    f.write(f"start********************************\n")
-                    f.write(f"Predicted: {pred}\n")
-                    f.write(f"True: {label}\n")
-                    f.write(f"end==================================\n\n")
-
-                if not args.random_choice:
-                    print('decoded_preds')
-                    print(decoded_preds)
-                    print('decoded_labels')
-                    print(decoded_labels)
-                    print('\n')
-                    print('end')
-                if args.random_choice:
-                    all_labels.extend(decoded_labels)
-                if args.teacher_forcing:
-                    if step % 150 == 0:
-                        print("start producing mel results********************************")
-                        if select_results['meg']==None:
-                            select_results['meg'] = input_features.cpu()
-                            select_results['decoded_labels']+=decoded_labels
-                            select_results['decoded_preds']+=decoded_preds
-                            select_results['pred_mel'] = model_output.p_mel.cpu()
-                            select_results['mel_spec'] = model_output.mel.cpu()
-                        else:
-                            select_results['meg'] = torch.cat((select_results['meg'], input_features.cpu()), axis=0) 
-                            select_results['decoded_labels']+=decoded_labels
-                            select_results['decoded_preds']+=decoded_preds
-                            select_results['pred_mel'] = torch.cat((select_results['pred_mel'], model_output.p_mel.cpu()), axis=0)
-                            select_results['mel_spec'] = torch.cat((select_results['mel_spec'], model_output.mel.cpu()), axis=0) # .cpu().detach().numpy()
-
-                        print("end mel results********************************")
-
-                
-
-                # torch.cat((torch.randn(3,5),torch.randn(3,5)), axis=0)
+write_jsonlines(os.path.join(results_path,f'orig_{result_basename}.jsonl'),orig_sentences_jsonl)
 
 # python 3.12.2
 with open(f'{mel_path}/select_results.pkl', 'wb') as pkl_file:
     pickle.dump(select_results, pkl_file)
 
 if not args.random_choice:
-    jsonl_file_path=os.path.join(results_path,f'{result_basename}.jsonl')
-    jsonl_file=[{"pred":pred,"label":label} for pred,label in zip(select_results['decoded_preds'], select_results['decoded_labels'])]
-    write_jsonlines(jsonl_file_path, jsonl_file)
+    # jsonl_file_path=os.path.join(results_path,f'{result_basename}.jsonl')
+    # jsonl_file=[{"pred":pred,"label":label} for pred,label in zip(select_results['decoded_preds'], select_results['decoded_labels'])]
+    # write_jsonlines(jsonl_file_path, jsonl_file)
     for metric in metrics:
         # print(metric.description)
-        if metric.description=='nltk':
-            metric.add_batch(pred_tokens_list=pred_tokens_list, target_tokens_list=target_tokens_list)
-        else:
-            metric.add_batch(predictions=select_results['decoded_preds'], references=select_results['decoded_labels'])
+        # if metric.description=='nltk':
+        #     metric.add_batch(pred_tokens_list=pred_tokens_list, target_tokens_list=target_tokens_list)
+        # else:
+        orig_sentences['pred']=filter_ascii_text(orig_sentences['pred'])
+        orig_sentences['label']=filter_ascii_text(orig_sentences['label'])
+        orig_sentences['pred']=convert_lower_text(orig_sentences['pred'])
+        orig_sentences['label']=convert_lower_text(orig_sentences['label'])
+        metric.add_batch(predictions=orig_sentences['pred'], references=orig_sentences['label'])
 
-if not args.random_choice:
     results={}
     for metric in metrics:
         result = metric.compute()
@@ -348,7 +370,12 @@ if not args.random_choice:
 
 # random_choice
 if args.random_choice:
-    all_preds=np.random.choice(all_labels,len(all_labels))
+    all_preds=np.random.choice(orig_sentences['label'],len(orig_sentences['label']))
+    all_labels=orig_sentences['label']
+    all_preds=filter_ascii_text(all_preds)
+    all_preds=convert_lower_text(all_preds)
+    all_labels=filter_ascii_text(all_labels)
+    all_labels=convert_lower_text(all_labels)
     for metric in metrics:
         metric.add_batch(predictions=all_preds, references=all_labels)
     results = {}

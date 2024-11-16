@@ -31,7 +31,7 @@ add_arg("learning_rate", type=float, default=1e-3,  help="learning_rate")
 add_arg("modal", type=str, default='speech',  help="modal")
 add_arg("sampling_rate", type=int, default=200,  help="sampling_rate")
 add_arg("orig_sample_rate", type=int, default=200,  help="orig_sample_rate")
-add_arg("eeg_ch", type=int, default=224,  help="eeg_ch")
+add_arg("eeg_ch", type=int, default=208,  help="eeg_ch")
 add_arg("lora_eeg_ch", type=int, default=None,  help="lora_eeg_ch")
 add_arg("min_audio_len", type=float, default=0.5,   help="min_audio_len")
 add_arg("max_audio_len", type=float, default=30,    help="max_audio_len")
@@ -141,9 +141,9 @@ else:
 # device mapping
 print(f'device map :{device_map}')
 
-pretrained = WhisperForConditionalGeneration.from_pretrained("openai/whisper-base.en")
-whisper_config = args.base_model + '/config.json'
-config = AutoConfig.from_pretrained(whisper_config)
+pretrained = WhisperForConditionalGeneration.from_pretrained("openai/whisper-base")
+# whisper_config = args.base_model + '/config.json'
+config = AutoConfig.from_pretrained("openai/whisper-base")
 depth = args.depth
 model = BrainWhisperForConditionalGeneration2(config, loss_dict, pretrained, run_name, depth) 
 model.config.mmd_input_type=args.mmd_input_type
@@ -218,7 +218,7 @@ training_args = \
                              evaluation_strategy="steps",  # Specifies the number of steps to evaluate the model
                              load_best_model_at_end=False,  # Specify whether to load the optimal model at the end
                              fp16=args.fp16,  # Whether to use half-precision training
-                             report_to="wandb",  # report to wandb
+                             report_to=None,  # report to wandb
                              save_steps=args.save_steps,  # Specify the number of steps to save checkpoints
                              eval_steps=args.eval_steps,  # Specify the number of steps to evaluate the model
                              save_total_limit=5,  # Only the latest checkpoint count is saved
