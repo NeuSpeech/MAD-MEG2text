@@ -98,7 +98,6 @@ def get_sequences(tsv_path):
     # Arrange text in order
     # Merge text
     # Give information about each sentence
-    audio_folder_path = f'/data/johj/MEG/gwilliams2023/preprocess8/audio'
     wav_dir = os.path.join(audio_folder_path, 'wav16')
     transcription_dir = os.path.join(audio_folder_path, 'transcription')
     # transcription_files=os.listdir(transcription_dir)
@@ -133,8 +132,6 @@ def get_sequences(tsv_path):
         wav, sr = sf.read(audio_file_name, always_2d=True)
 
         audio_secs = wav.shape[0] / sr
-        slide_sec = 1
-        seg_sec = 3 # modify 05014
 
         for start_sec in range(0, int(np.ceil(audio_secs - seg_sec)), slide_sec):
             sent = {}
@@ -229,7 +226,6 @@ def makedirs(path):
 
 def process_meg(tsv_path):
     print(tsv_path,'begin')
-    target_meg_sr = 120 # change 200 => 120
     sentences = get_sequences(tsv_path)
     save_sentences_path=tsv_path.replace('.tsv','save_sentences_info.jsonl')
     assert save_sentences_path!=tsv_path,' these two have to be different'
@@ -242,7 +238,7 @@ def process_meg(tsv_path):
     )
     meg.pick(picks, verbose=False)
     # meg.notch_filter(60, verbose=False)
-    meg.filter(l_freq=1, h_freq=58, verbose=False)
+    meg.filter(l_freq=l_freq, h_freq=h_freq, verbose=False)
     meg.resample(target_meg_sr)
     data = meg.get_data()
     assert data.shape[0] == 208, f'data shape:{data.shape}'
@@ -270,7 +266,7 @@ def process_meg(tsv_path):
         
 
         # standardization
-        seg_meg, cr = preprocess_eeg_data(seg_meg, threshold=20) # change threshold=20 for the same setting as meta
+        seg_meg, cr = preprocess_eeg_data(seg_meg, threshold=threshold) # change threshold=20 for the same setting as meta
         # Store the processed audio files, EEG files, and annotation files.
         seg_meg_path = tsv_path.replace('download', replace_folder).replace('events.tsv', f'senid_{i}_meg.npy')
         seg_audio_path = seg_meg_path.replace('meg.npy', 'audio.wav')
@@ -340,6 +336,7 @@ def process_file(filename_id):
 
 # python process_dataset/gwilliams2023_process_240411.py
 if __name__ == '__main__':
+    np.random.seed(0)
     home_dir = os.path.expanduser("~")
     replace_folder = 'preprocess8'
     folder_path = '/data/johj/MEG/gwilliams2023/'
@@ -351,17 +348,26 @@ if __name__ == '__main__':
     local_files_only = True
     extension = 'events.tsv'
     original_eeg_sr = 1000
+    target_meg_sr = 120 # change 200 => 120
     target_speech_sr = 16000
+    threshold = 20
+    slide_sec = 1
+    seg_sec = 3 # modify 05014
     delay_sec = 0.5
+    processes = 16
+    l_freq = 1
+    h_freq = 58
+    hop_length=128
     events_tsv_list = find_files_with_extension(folder_path, extension)
     processor = WhisperProcessor.from_pretrained(base_model,
                                                  language=language,
                                                  task=task,
                                                  no_timestamps=not timestamps,
-                                                 local_files_only=local_files_only, hop_length=128) # equal to Meta 
+                                                 local_files_only=local_files_only,
+                                                 hop_length=hop_length) # equal to Meta
     # results=[process_file(file) for file in events_tsv_list[:2]]
 
-    pool = Pool(processes=16)
+    pool = Pool(processes=processes)
     results = pool.map(process_file, np.arange(len(events_tsv_list)))
     pool.close()
     pool.join()
